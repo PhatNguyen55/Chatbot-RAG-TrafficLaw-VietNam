@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     VECTOR_STORE_DIRECTORY: str = "data/vector_store"
     # Tên file cụ thể để lưu tất cả các chunks đã được xử lý
     ALL_CHUNKS_PATH: str = "data/vector_store/all_chunks.pkl"
+    GOOGLE_API_KEY: str
 
     class Config:
         case_sensitive = True
