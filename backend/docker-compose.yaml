@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:15
+    container_name: law-chat-db
+    restart: always
+    environment:
+     # Gán các biến từ .env vào biến cùng tên mà image postgres yêu cầu
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:
