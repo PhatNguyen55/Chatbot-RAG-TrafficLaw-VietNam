@@ -17,7 +17,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from rank_bm25 import BM25Okapi
-from transformers import AutoTokenizer, AutoModel
+# from transformers import AutoTokenizer, AutoModel
 
 from app.core.config import settings
 
@@ -128,39 +128,25 @@ class RAGService:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             print(f"Sử dụng thiết bị: {device}")
 
-            # 2. Tải models AI - THEO CÁCH MỚI
-            embedding_model_name = 'bkai-foundation-models/vietnamese-bi-encoder'
-            print(f"Loading new embedding model: {embedding_model_name}")
-            print("   - Loading with SentenceTransformer directly...")
-            embedding_model = SentenceTransformer(embedding_model_name, device=device)
-
-            # # 2a. Tải Tokenizer "chậm" một cách tường minh
-            # print("   - Loading tokenizer with use_fast=False...")
-            # tokenizer = AutoTokenizer.from_pretrained(
-            #     embedding_model_name, 
-            #     use_fast=False  # <<< ĐÂY LÀ CHÌA KHÓA GIẢI QUYẾT VẤN ĐỀ
-            # )
-
-            # # 2b. Tải Model thuần (AutoModel)
-            # print("   - Loading model weights...")
-            # model = AutoModel.from_pretrained(
-            #     embedding_model_name,
-            #     trust_remote_code=True # Cần thiết cho các model BGE
-            # )
-
-            # # 2c. Kết hợp chúng lại thành một đối tượng SentenceTransformer
-            # print("   - Creating SentenceTransformer object...")
-            # embedding_model = SentenceTransformer(
-            #     modules=[
-            #         model,
-            #         # Có thể thêm các lớp pooling ở đây nếu cần, nhưng thường thì model đã có sẵn
-            #     ],
-            #     device=device
-            # )
-            # # Gán tokenizer đã tải vào model
-            # embedding_model.tokenizer = tokenizer
+             # 2. Tải model EMBEDDING từ thư mục local
+            embedding_model_folder = "bkai-foundation-models_vietnamese-bi-encoder"
+            embedding_model_path = os.path.join(settings.MODELS_DIRECTORY, embedding_model_folder)
             
-            self.reranker = CrossEncoder('AITeamVN/Vietnamese_Reranker', device=device, max_length=512)
+            if not os.path.exists(embedding_model_path):
+                raise FileNotFoundError(f"Thư mục model embedding không tồn tại: {embedding_model_path}")
+            
+            print(f"Loading embedding model from: {embedding_model_path}")
+            embedding_model = SentenceTransformer(embedding_model_path, device=device)
+
+            # 3. Tải model RERANKER từ thư mục local
+            reranker_model_folder = "AITeamVN_Vietnamese_Reranker"
+            reranker_model_path = os.path.join(settings.MODELS_DIRECTORY, reranker_model_folder)
+
+            if not os.path.exists(reranker_model_path):
+                raise FileNotFoundError(f"Thư mục model reranker không tồn tại: {reranker_model_path}")
+
+            print(f"Loading reranker model from: {reranker_model_path}")
+            self.reranker = CrossEncoder(reranker_model_path, device=device, max_length=512)
             
             # 3. Khởi tạo LLM
             self.llm = ChatGoogleGenerativeAI(

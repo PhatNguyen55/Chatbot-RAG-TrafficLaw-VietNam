@@ -5,3 +5,4 @@ models/
 *.pyo
 *.pyd
 poetry.lock
+alembic/

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any
+import datetime
 
 class Source(BaseModel):
     source_file: str
@@ -19,3 +20,24 @@ class ChatMessageCreate(BaseModel):
     question: str
     answer: str
     sources: List[Dict[str, Any]]
+    
+class ChatMessage(BaseModel):
+    id: int
+    question: str
+    answer: str
+    sources: List[Dict[str, Any]]
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+class ChatSession(BaseModel):
+    id: int
+    title: str
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+class ChatSessionDetail(ChatSession):
+    messages: List[ChatMessage]

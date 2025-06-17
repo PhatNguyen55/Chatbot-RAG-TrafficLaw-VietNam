@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     PDF_DIRECTORY: str = "data/pdfs"
     VECTOR_STORE_DIRECTORY: str = "data/vector_store"
     ALL_CHUNKS_PATH: str = "data/vector_store/all_chunks.pkl"
+    MODELS_DIRECTORY: str = "models"
 
     # Không cần class Config ở đây nữa vì chúng ta đã load thủ công
     # class Config:
