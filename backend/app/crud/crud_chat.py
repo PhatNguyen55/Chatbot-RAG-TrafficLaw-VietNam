@@ -3,6 +3,7 @@ from app.models.chat import ChatSession, ChatMessage
 from app.schemas.chat import ChatMessageCreate
 from sqlalchemy import select, delete # Thêm delete
 from typing import List
+from sqlalchemy.orm import joinedload, selectinload
 
 async def create_session(db: AsyncSession, *, user_id: int) -> ChatSession:
     db_session = ChatSession(user_id=user_id)
@@ -30,18 +31,17 @@ async def get_sessions_by_user(db: AsyncSession, *, user_id: int) -> List[ChatSe
     )
     return result.scalars().all()
 
-async def get_messages_by_session(db: AsyncSession, *, session_id: int, user_id: int) -> List[ChatMessage]:
-    """Lấy tất cả message của một session, đảm bảo session đó thuộc về user."""
+async def get_session_by_id(db: AsyncSession, *, session_id: int, user_id: int) -> ChatSession | None:
+    """Lấy một session và TẢI LUÔN các message liên quan của nó."""
     result = await db.execute(
-        select(ChatMessage)
-        .join(ChatSession)
-        .filter(ChatMessage.session_id == session_id, ChatSession.user_id == user_id)
-        .order_by(ChatMessage.created_at.asc())
+        select(ChatSession)
+        .options(selectinload(ChatSession.messages)) # Chỉ cần selectinload, không cần order_by ở đây nữa
+        .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
     )
-    return result.scalars().all()
+    return result.scalar_one_or_none()
 
 async def remove_session(db: AsyncSession, *, session_id: int, user_id: int) -> ChatSession | None:
-    """Xóa một session và các message liên quan (do cascade)."""
+    """Xóa một session dựa trên ID, sau khi đã xác thực quyền sở hữu."""
     result = await db.execute(
         select(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
     )

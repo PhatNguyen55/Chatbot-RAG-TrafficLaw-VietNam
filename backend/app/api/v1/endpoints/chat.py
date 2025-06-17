@@ -61,18 +61,11 @@ async def get_session_details(
     current_user: models_user.User = Depends(deps.get_current_user),
 ):
     """Lấy chi tiết và lịch sử tin nhắn của một cuộc trò chuyện."""
-    session = await crud_chat.get_messages_by_session(db=db, session_id=session_id, user_id=current_user.id)
+    # Hàm CRUD bây giờ đã trả về session với đầy đủ messages
+    session = await crud_chat.get_session_by_id(db=db, session_id=session_id, user_id=current_user.id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found or you don't have access")
-    # Tái cấu trúc lại dữ liệu để khớp với response_model
-    # Đây là một ví dụ, bạn có thể cần lấy thông tin session riêng
-    first_message = session[0] if session else None
-    return {
-        "id": session_id,
-        "title": first_message.session.title if first_message else "Cuộc trò chuyện",
-        "created_at": first_message.session.created_at if first_message else datetime.datetime.now(),
-        "messages": session
-    }
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
@@ -82,7 +75,8 @@ async def delete_session(
     current_user: models_user.User = Depends(deps.get_current_user),
 ):
     """Xóa một cuộc trò chuyện."""
-    deleted_session = await crud_chat.remove_session(db=db, session_id=session_id, user_id=current_user.id)
-    if not deleted_session:
-        raise HTTPException(status_code=404, detail="Session not found or you don't have access")
-    return {"ok": True} 
+    session_to_delete = await crud_chat.get_session_by_id(db=db, session_id=session_id, user_id=current_user.id)
+    if not session_to_delete:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await crud_chat.remove_session(db=db, session_id=session_id, user_id=current_user.id)
+    return None
