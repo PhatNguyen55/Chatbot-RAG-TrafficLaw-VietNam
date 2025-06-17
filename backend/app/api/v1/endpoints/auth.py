@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # --- SỬA IMPORT ---
 from app.schemas import token as schemas_token, user as schemas_user
 from app.crud import crud_user
+from app.models.user import User as UserModel
 # --- KẾT THÚC SỬA IMPORT ---
 from app.api import deps
 from app.core.security import create_access_token, verify_password
@@ -26,3 +27,17 @@ async def signup(user_in: schemas_user.UserCreate, db: AsyncSession = Depends(de
         raise HTTPException(status_code=400, detail="Email already registered")
     user = await crud_user.create(db, obj_in=user_in)
     return user
+
+@router.get("/me", response_model=schemas_user.User)
+def get_current_user_info(
+    current_user: UserModel = Depends(deps.get_current_user)
+):
+    """
+    Lấy thông tin của người dùng đang đăng nhập (đã được xác thực).
+    """
+    # Hàm get_current_user trong deps đã làm tất cả công việc nặng nhọc:
+    # 1. Lấy token từ header.
+    # 2. Xác thực token.
+    # 3. Lấy đối tượng user từ database.
+    # Nhiệm vụ của endpoint này chỉ đơn giản là trả về đối tượng đó.
+    return current_user

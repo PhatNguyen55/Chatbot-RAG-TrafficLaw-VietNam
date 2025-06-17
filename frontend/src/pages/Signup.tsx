@@ -10,10 +10,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Scale, Loader2 } from 'lucide-react';
 
+import apiClient from '@/lib/api';
+import { AxiosError } from 'axios';
+
 const Signup = () => {
   const navigate = useNavigate(); // Dùng hook useNavigate để chuyển hướng
   const [formData, setFormData] = useState({
-    name: '',
+    // name: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -33,11 +36,11 @@ const Signup = () => {
     e.preventDefault();
     setError('');
 
+    // --- Giữ nguyên logic validation ---
     if (formData.password !== formData.confirmPassword) {
       setError('Mật khẩu xác nhận không khớp.');
       return;
     }
-
     if (formData.password.length < 6) {
       setError('Mật khẩu phải có ít nhất 6 ký tự.');
       return;
@@ -45,20 +48,38 @@ const Signup = () => {
 
     setIsLoading(true);
 
-    // Mock registration
-    setTimeout(() => {
-      // UX Tốt hơn: Thông báo thành công trước khi chuyển hướng
-      toast.success("Tạo tài khoản thành công!", {
-        description: "Đang chuyển bạn đến trang trò chuyện...",
+    try {
+      // Gọi API đăng ký bằng apiClient
+      const response = await apiClient.post('/auth/signup', {
+        email: formData.email,
+        password: formData.password,
       });
-      
-      localStorage.setItem('isAuthenticated', 'true');
-      setIsLoading(false);
-      
-      // Chuyển hướng sau một khoảng trễ ngắn
-      setTimeout(() => navigate('/chat'), 1000); 
 
-    }, 1500);
+      // Xử lý khi đăng ký thành công
+      if (response.status === 200) {
+        toast.success("Tạo tài khoản thành công!", {
+          description: "Bạn có thể đăng nhập ngay bây giờ.",
+        });
+        // Chuyển hướng đến trang đăng nhập
+        navigate('/login'); 
+      }
+    } catch (err) {
+      // Xử lý lỗi từ API
+      if (err instanceof AxiosError && err.response) {
+        // Lấy thông báo lỗi từ backend
+        const errorMessage = err.response.data.detail || 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+        setError(errorMessage);
+        toast.error("Đăng ký thất bại", { description: errorMessage });
+      } else {
+        // Lỗi mạng hoặc lỗi không xác định
+        const genericError = 'Không thể kết nối đến máy chủ.';
+        setError(genericError);
+        toast.error("Lỗi mạng", { description: genericError });
+      }
+    } finally {
+      // Luôn tắt trạng thái loading sau khi hoàn tất
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -81,10 +102,10 @@ const Signup = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="name">Họ và Tên</Label>
                 <Input id="name" name="name" type="text" placeholder="Nhập họ và tên của bạn" value={formData.name} onChange={handleInputChange} required />
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

@@ -1,5 +1,6 @@
+// pages/Login.tsx
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Scale } from 'lucide-react';
 
+import apiClient from '@/lib/api';
+import { AxiosError } from 'axios';
+import { toast } from 'sonner';
+
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth hook
+
+
 const Login = () => {
+  const navigate = useNavigate(); 
+  const { login } = useAuth(); // Lấy hàm login từ context
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,16 +29,51 @@ const Login = () => {
     setIsLoading(true);
     setError('');
 
-    // Mock authentication - replace with real auth when Supabase is connected
-    setTimeout(() => {
-      if (email && password) {
-        localStorage.setItem('isAuthenticated', 'true');
-        window.location.href = '/chat';
-      } else {
-        setError('Please enter both email and password');
+    try {
+      // API của chúng ta nhận dữ liệu dạng form-data
+      // Cách tốt nhất là dùng URLSearchParams
+      const params = new URLSearchParams();
+      params.append('username', email);
+      params.append('password', password);
+
+      const response = await apiClient.post('/auth/login', params, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      // Xử lý khi đăng nhập thành công
+      if (response.data.access_token) {
+        // Lấy token từ response
+        const { access_token } = response.data;
+      
+        toast.promise(
+          login(access_token), // Truyền promise của hàm login vào toast
+          {
+            loading: 'Đang xác thực người dùng...',
+            success: () => {
+              // Chuyển hướng chỉ khi promise thành công
+              navigate('/chat');
+              return "Đăng nhập thành công!";
+            },
+            error: 'Xác thực thất bại. Vui lòng thử lại.',
+          }
+        );
       }
-      setIsLoading(false);
-    }, 1000);
+    } catch (err) {
+      // Xử lý lỗi
+      if (err instanceof AxiosError && err.response) {
+        const errorMessage = err.response.data.detail || 'Email hoặc mật khẩu không đúng.';
+        setError(errorMessage);
+        toast.error("Đăng nhập thất bại", { description: errorMessage });
+      } else {
+        const genericError = 'Không thể kết nối đến máy chủ.';
+        setError(genericError);
+        toast.error("Lỗi mạng", { description: genericError });
+      }
+    } finally {
+      // setIsLoading(false);
+    }
   };
 
   return (

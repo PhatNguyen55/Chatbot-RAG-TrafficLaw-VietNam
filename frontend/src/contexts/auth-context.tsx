@@ -1,18 +1,15 @@
-import { createContext, useContext, type ReactNode, useState, useEffect } from 'react';
-import Cookies from 'js-cookie';
+// src/contexts/auth-context.tsx
+
+import { createContext, useContext, type ReactNode, useState, useEffect, useCallback } from 'react';
+import apiClient from '@/lib/api'; // Import API client của chúng ta
+import { type User } from '@/lib/types'; // Import User type từ file types chung
 
 type AuthContextType = {
   isAuthenticated: boolean;
   user: User | null;
-  login: (token: string, userData: User) => void;
+  isLoading: boolean; // Thêm trạng thái loading
+  login: (token: string) => Promise<void>; // Hàm login nhận token và cập nhật thông tin user
   logout: () => void;
-  register: (userData: User) => void;
-};
-
-type User = {
-  id: string;
-  name: string;
-  email: string;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,39 +17,61 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Bắt đầu ở trạng thái loading
 
-  useEffect(() => {
-    const token = Cookies.get('auth_token');
-    const userData = Cookies.get('user_data');
+  // --- HÀM MỚI: LẤY THÔNG TIN USER TỪ TOKEN ---
+  const fetchUser = useCallback(async () => {
+    const token = localStorage.getItem('access_token');
     
-    if (token && userData) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(userData));
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Gọi một API mới để lấy thông tin người dùng hiện tại
+      // Backend sẽ xác thực token và trả về thông tin user
+      const response = await apiClient.get('/auth/me'); 
+      if (response.data) {
+        setUser(response.data);
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      // Nếu token không hợp lệ, xóa nó đi
+      console.error("Failed to fetch user:", error);
+      localStorage.removeItem('access_token');
+      setUser(null);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  const login = (token: string, userData: User) => {
-    Cookies.set('auth_token', token, { expires: 7 });
-    Cookies.set('user_data', JSON.stringify(userData), { expires: 7 });
-    setIsAuthenticated(true);
-    setUser(userData);
+  // Chạy một lần khi component được mount
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
+
+  // --- HÀM LOGIN ĐÃ ĐƯỢC CẬP NHẬT ---
+  const login = async (token: string) => {
+    // Lưu token vào localStorage
+    localStorage.setItem('access_token', token);
+    // Sau khi lưu, gọi lại fetchUser để lấy thông tin mới nhất và cập nhật state
+    await fetchUser();
   };
 
+  // --- HÀM LOGOUT ĐÃ ĐƯỢC CẬP NHẬT ---
   const logout = () => {
-    Cookies.remove('auth_token');
-    Cookies.remove('user_data');
-    setIsAuthenticated(false);
+    localStorage.removeItem('access_token');
     setUser(null);
-  };
-
-  const register = (userData: User) => {
-    // Thực tế bạn sẽ gọi API đăng ký ở đây
-    // Sau khi đăng ký thành công, có thể tự động đăng nhập
-    console.log('Registered user:', userData);
+    setIsAuthenticated(false);
+    // Có thể thêm logic gọi API /logout của backend ở đây nếu có
+    // và chuyển hướng người dùng
+    window.location.href = '/login';
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout, register }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -65,5 +84,3 @@ export function useAuth() {
   }
   return context;
 }
-
-export type { User };
