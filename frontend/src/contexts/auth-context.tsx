@@ -24,6 +24,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('access_token');
     
     if (!token) {
+      setIsAuthenticated(false);
+      setUser(null);
       setIsLoading(false);
       return;
     }
@@ -31,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Gọi một API mới để lấy thông tin người dùng hiện tại
       // Backend sẽ xác thực token và trả về thông tin user
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       const response = await apiClient.get('/auth/me'); 
       if (response.data) {
         setUser(response.data);
@@ -62,7 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // --- HÀM LOGOUT ĐÃ ĐƯỢC CẬP NHẬT ---
   const logout = () => {
+    console.log("Logging out...");
     localStorage.removeItem('access_token');
+    delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     setIsAuthenticated(false);
     // Có thể thêm logic gọi API /logout của backend ở đây nếu có

@@ -21,6 +21,8 @@ import {
   MoreVertical,
 } from 'lucide-react';
 
+import { useAuth } from "@/contexts/auth-context";
+
 interface UserProfileProps {
   collapsed: boolean;
   // Trong tương lai, bạn có thể truyền user object từ ngoài vào
@@ -28,19 +30,23 @@ interface UserProfileProps {
 }
 
 export const UserProfile = ({ collapsed }: UserProfileProps) => {
-  // Dữ liệu người dùng giả, dễ dàng thay thế bằng dữ liệu thật
-  const user = {
-    name: 'Luật sư AI',
-    email: 'contact@luatai.vn',
-    avatar: 'https://github.com/shadcn.png', // URL ảnh đại diện
-    initials: 'AI'
+  const { user, logout } = useAuth();
+
+  // Nếu chưa có thông tin user (đang loading hoặc chưa đăng nhập),
+  // không render gì cả để tránh lỗi.
+  if (!user) {
+    return null;
+  }
+  
+  // --- THAY ĐỔI: TẠO DỮ LIỆU HIỂN THỊ TỪ USER THẬT ---
+  const displayUser = {
+    name: user.email, // Tạm thời dùng email làm tên
+    email: user.email,
+    // Lấy chữ cái đầu của email làm ảnh đại diện fallback
+    initials: user.email.charAt(0).toUpperCase(),
+    avatar: '', // Có thể thêm URL avatar vào model User sau
   };
 
-  const handleLogout = () => {
-    // Xóa trạng thái đăng nhập và chuyển hướng về trang login
-    localStorage.removeItem('isAuthenticated');
-    window.location.href = '/login';
-  };
 
   // Nội dung của DropdownMenu, có thể tái sử dụng
   const dropdownContent = (
@@ -48,13 +54,13 @@ export const UserProfile = ({ collapsed }: UserProfileProps) => {
       <DropdownMenuLabel className="p-0 font-normal">
         <div className="flex items-center gap-3 px-2 py-1.5 text-left text-sm">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">{user.initials}</AvatarFallback>
+            <AvatarImage src={displayUser.avatar} alt={displayUser.name} />
+            <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">{displayUser.initials}</AvatarFallback>
           </Avatar>
           <div className="grid flex-1 leading-tight">
-            <span className="font-medium truncate">{user.name}</span>
+            <span className="font-medium truncate">{displayUser.name}</span>
             <span className="text-muted-foreground truncate text-xs">
-              {user.email}
+              {displayUser.email}
             </span>
           </div>
         </div>
@@ -75,7 +81,7 @@ export const UserProfile = ({ collapsed }: UserProfileProps) => {
         </DropdownMenuItem>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={handleLogout}>
+      <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={logout}>
         <LogOut className="mr-2 h-4 w-4" />
         <span>Đăng xuất</span>
       </DropdownMenuItem>
@@ -90,8 +96,8 @@ export const UserProfile = ({ collapsed }: UserProfileProps) => {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="w-full h-auto p-2">
               <Avatar className="w-8 h-8">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">{user.initials}</AvatarFallback>
+                <AvatarImage src={displayUser.avatar} alt={displayUser.name} />
+                <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">{displayUser.initials}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
@@ -111,13 +117,13 @@ export const UserProfile = ({ collapsed }: UserProfileProps) => {
           <Button variant="ghost" className="w-full justify-start p-2 h-auto text-left">
             <div className="flex items-center gap-3 w-full">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">{user.initials}</AvatarFallback>
+                <AvatarImage src={displayUser.avatar} alt={displayUser.name} />
+                <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">{displayUser.initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 leading-tight">
-                <span className="font-medium truncate">{user.name}</span>
+                <span className="font-medium truncate">{displayUser.name}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {user.email}
+                  {displayUser.email}
                 </span>
               </div>
               <MoreVertical className="ml-auto h-4 w-4 text-muted-foreground" />
