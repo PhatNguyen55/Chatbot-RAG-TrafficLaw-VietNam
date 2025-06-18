@@ -2,9 +2,9 @@
 
 import { useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea} from '@/components/ui/scroll-area';
 import { User, Bot, Copy, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
-import { type Message } from '@/types'; // QUAN TRỌNG: Sử dụng Message từ file types chung
+import { type Message } from '@/lib/types'; 
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 
@@ -22,13 +22,20 @@ const handleCopy = (text: string) => {
 export const ChatTimeline = ({ messages, isLoading = false }: ChatTimelineProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // 2. Hàm để cuộn đến thẻ div đó.
+    const scrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+    // 3. Gọi hàm cuộn mỗi khi có tin nhắn mới hoặc trạng thái loading thay đổi.
+    scrollToBottom();
   }, [messages, isLoading]);
   
   return (
     <ScrollArea className="flex-1 bg-white dark:bg-slate-800">
       <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
+        <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
         {messages.map((message) => {
           const isUser = message.role === 'user';
           return (
@@ -52,27 +59,27 @@ export const ChatTimeline = ({ messages, isLoading = false }: ChatTimelineProps)
                 {/* ================================================================ */}
                 {/*  BỔ SUNG LẠI TÍNH NĂNG RAG: TRÍCH DẪN NGUỒN VÀ CÁC NÚT TIỆN ÍCH */}
                 {/* ================================================================ */}
-                {!isUser && (
+                {!isUser && message.sources && message.sources.length > 0 && (
                   <div className="pt-2 space-y-4">
                     {/* 1. Phần trích dẫn nguồn */}
-                    {message.sources && message.sources.length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">NGUỒN THAM KHẢO:</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {message.sources.map((source, index) => (
-                            <a 
-                              key={index} 
-                              href={source.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md transition-colors"
-                            >
-                              {source.title}
-                            </a>
-                          ))}
-                        </div>
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">NGUỒN THAM KHẢO:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {/* Lặp qua message.sources */}
+                        {message.sources.map((source, index) => (
+                          // Bây giờ nó là một thẻ span, không phải link <a>
+                          <span 
+                            key={index} 
+                            className="text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md transition-colors cursor-default"
+                            // Thêm tooltip để hiển thị thông tin đầy đủ khi di chuột vào
+                            title={`Văn bản: ${source.document_number} - File: ${source.source_file}`}
+                          >
+                            {/* Hiển thị thông tin chính từ source */}
+                            {source.dieu}
+                          </span>
+                        ))}
                       </div>
-                    )}
+                    </div>
 
                     {/* 2. Các nút tiện ích (Copy, Feedback) */}
                     <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
@@ -102,7 +109,10 @@ export const ChatTimeline = ({ messages, isLoading = false }: ChatTimelineProps)
                 </div>
             </div>
         )}
-        <div ref={messagesEndRef} />
+        </div>
+
+        {/* Thẻ div để cuộn đến cuối cùng */}
+      <div ref={messagesEndRef} />
       </div>
     </ScrollArea>
   );

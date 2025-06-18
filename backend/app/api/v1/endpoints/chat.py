@@ -80,3 +80,18 @@ async def delete_session(
         raise HTTPException(status_code=404, detail="Session not found")
     await crud_chat.remove_session(db=db, session_id=session_id, user_id=current_user.id)
     return None
+
+@router.patch("/sessions/{session_id}", response_model=schemas_chat.ChatSession)
+async def update_session(
+    session_id: int,
+    session_in: schemas_chat.ChatSessionUpdate,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: models_user.User = Depends(deps.get_current_user),
+):
+    """Cập nhật tên của một cuộc trò chuyện."""
+    session = await crud_chat.get_session_by_id(db=db, session_id=session_id, user_id=current_user.id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    updated_session = await crud_chat.update_session_title(db=db, session=session, title=session_in.title)
+    return updated_session

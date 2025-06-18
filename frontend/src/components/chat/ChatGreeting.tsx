@@ -1,3 +1,4 @@
+//src/components/chat/ChatGreeting.tsx
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { MessageSquare, Scale, BookOpen, Gavel } from 'lucide-react';

@@ -50,3 +50,10 @@ async def remove_session(db: AsyncSession, *, session_id: int, user_id: int) -> 
         await db.delete(session_to_delete)
         await db.commit()
     return session_to_delete
+
+async def update_session_title(db: AsyncSession, *, session: ChatSession, title: str) -> ChatSession:
+    session.title = title
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return session

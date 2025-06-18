@@ -1,8 +1,10 @@
+//src/components/chat/ChatSessionManager.tsx
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { type ChatSession } from '@/lib/types';
 import { 
   MessageSquare, 
   Plus, 
@@ -20,21 +22,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export interface ChatSession {
-  id: string;
-  name: string;
-  lastMessage: string;
-  timestamp: Date;
-  messageCount: number;
-}
-
 interface ChatSessionManagerProps {
   sessions: ChatSession[];
-  currentSessionId: string | null;
+  currentSessionId: number | null;
   onCreateNew: () => void;
-  onSelectSession: (sessionId: string) => void;
-  onRenameSession: (sessionId: string, newName: string) => void;
-  onDeleteSession: (sessionId: string) => void;
+  onSelectSession: (sessionId: number) => void;
+  onDeleteSession: (sessionId: number) => void;
+  onRenameSession: (sessionId: number, newName: string) => void;
   collapsed: boolean;
 }
 
@@ -48,21 +42,20 @@ const ChatSessionManager = ({
   collapsed
 }: ChatSessionManagerProps) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
 
   const filteredSessions = sessions.filter(session =>
-    session.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    session.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+    session.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleStartEdit = (session: ChatSession) => {
     setEditingId(session.id);
-    setEditingName(session.name);
+    setEditingName(session.title);
   };
 
   const handleSaveEdit = () => {
-    if (editingId && editingName.trim()) {
+    if (editingId != null && editingName.trim()) {
       onRenameSession(editingId, editingName.trim());
     }
     setEditingId(null);
@@ -74,15 +67,15 @@ const ChatSessionManager = ({
     setEditingName('');
   };
 
-  const formatTimestamp = (timestamp: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - timestamp.getTime();
+  const formatTimestamp = (timestamp: string) => {
+    const now = new Date(timestamp);
+    const diff = now.getTime() - new Date(timestamp).getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     
     if (days === 0) return 'Today';
     if (days === 1) return 'Yesterday';
     if (days < 7) return `${days} days ago`;
-    return timestamp.toLocaleDateString();
+    return new Date(timestamp).toLocaleDateString();
   };
 
   if (collapsed) {
@@ -184,16 +177,13 @@ const ChatSessionManager = ({
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm truncate">{session.name}</h4>
+                        <h4 className="font-medium text-sm truncate">{session.title}</h4>
                         <p className="text-xs text-gray-500 truncate mt-1">
-                          {session.lastMessage}
+                          Tạo lúc: {new Date(session.created_at).toLocaleDateString()}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
                           <span className="text-xs text-gray-400">
-                            {formatTimestamp(session.timestamp)}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {session.messageCount} messages
+                            {formatTimestamp(session.created_at)}
                           </span>
                         </div>
                       </div>

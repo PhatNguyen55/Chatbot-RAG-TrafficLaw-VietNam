@@ -1,17 +1,20 @@
+//src/components/chat/ChatSidebar.tsx
 import { Button } from '@/components/ui/button';
-import { Scale, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import ChatSessionManager, { type ChatSession } from './ChatSessionManager';
+import { Scale, PanelLeftClose, PanelLeftOpen, Loader2 } from 'lucide-react';
+import ChatSessionManager from './ChatSessionManager';
 import UserProfile from './UserProfile';
+import { type ChatSession } from '@/lib/types';
 
 interface ChatSidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   sessions: ChatSession[];
-  currentSessionId: string | null;
+  currentSessionId: number | null; // ID là number
   onCreateNew: () => void;
-  onSelectSession: (sessionId: string) => void;
-  onRenameSession: (sessionId: string, newName: string) => void;
-  onDeleteSession: (sessionId: string) => void;
+  onSelectSession: (sessionId: number) => void; // ID là number
+  onRenameSession: (sessionId: number, newName: string) => void; // ID là number
+  onDeleteSession: (sessionId: number) => void; // ID là number
+  isLoading: boolean; // Thêm prop loading
 }
 
 const ChatSidebar = ({
@@ -22,7 +25,8 @@ const ChatSidebar = ({
   onCreateNew,
   onSelectSession,
   onRenameSession,
-  onDeleteSession
+  onDeleteSession,
+  isLoading
 }: ChatSidebarProps) => {
   return (
     <div className={`${collapsed ? 'w-16' : 'w-80'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300`}>
@@ -55,16 +59,22 @@ const ChatSidebar = ({
       </div>
 
       {/* Chat Sessions */}
-      <div className="flex-1 min-h-0">
-        <ChatSessionManager
-          sessions={sessions}
-          currentSessionId={currentSessionId}
-          onCreateNew={onCreateNew}
-          onSelectSession={onSelectSession}
-          onRenameSession={onRenameSession}
-          onDeleteSession={onDeleteSession}
-          collapsed={collapsed}
-        />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          </div>
+        ) : (
+          <ChatSessionManager
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onCreateNew={onCreateNew}
+            onSelectSession={onSelectSession}
+            onRenameSession={onRenameSession}
+            onDeleteSession={onDeleteSession}
+            collapsed={collapsed}
+          />
+        )}
       </div>
 
       {/* User Profile */}

@@ -41,3 +41,6 @@ class ChatSession(BaseModel):
 
 class ChatSessionDetail(ChatSession):
     messages: List[ChatMessage]
+    
+class ChatSessionUpdate(BaseModel):
+    title: str
