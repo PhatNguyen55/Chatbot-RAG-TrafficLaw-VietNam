@@ -53,3 +53,8 @@ export interface ChatSession {
 export interface ChatSessionDetail extends ChatSession {
     messages: Message[];
 }
+
+export interface HistoryItem {
+  human: string;
+  ai: string;
+}

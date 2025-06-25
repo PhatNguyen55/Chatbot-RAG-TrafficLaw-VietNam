@@ -12,7 +12,8 @@ from app.services.rag_service import rag_service
 from fastapi import HTTPException
 from typing import List
 import datetime
-from app.crud import crud_chat 
+
+from langchain_core.messages import HumanMessage, AIMessage
 
 router = APIRouter()
 
@@ -30,7 +31,16 @@ async def handle_chat_message(
         # (Thêm logic kiểm tra session_id ở đây)
         session_id = request.session_id
 
-    result = rag_service.ask(request.question)
+    langchain_chat_history = []
+    for item in request.chat_history:
+        langchain_chat_history.append(HumanMessage(content=item.human))
+        langchain_chat_history.append(AIMessage(content=item.ai))
+        
+    # Gọi RAG service với câu hỏi VÀ lịch sử chat
+    result = rag_service.ask(
+        question=request.question,
+        chat_history=langchain_chat_history
+    )
     
     message_to_db = schemas_chat.ChatMessageCreate( # Dùng schemas_chat
         question=request.question,

@@ -50,7 +50,7 @@ const Index = () => {
                 </Button>
               </Link>
               <Link to="/signup">
-                <Button className="bg-blue-600 hover:bg-blue-700">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                   Bắt đầu ngay
                 </Button>
               </Link>
@@ -72,7 +72,7 @@ const Index = () => {
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/signup">
-              <Button size="lg" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-base px-8 py-6">
+              <Button size="lg" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white text-base px-8 py-6">
                 Bắt đầu trò chuyện
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
@@ -106,7 +106,7 @@ const Index = () => {
         </div>
 
         {/* CTA Section */}
-        <div className="mt-24 text-center">
+        {/* <div className="mt-24 text-center">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-2xl rounded-xl">
             <div className="py-12 px-6">
               <h2 className="text-3xl font-bold mb-4">
@@ -123,7 +123,7 @@ const Index = () => {
               </Link>
             </div>
           </div>
-        </div>
+        </div> */}
       </main>
     </div>
   );

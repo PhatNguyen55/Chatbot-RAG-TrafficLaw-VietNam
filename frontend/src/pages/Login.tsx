@@ -83,15 +83,15 @@ const Login = () => {
           <div className="mx-auto w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
             <Scale className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Transportation Law AI</h1>
-          <p className="text-gray-600 mt-2">Your intelligent legal assistant</p>
+          <h1 className="text-2xl font-bold text-gray-900">Trợ lý Luật GTĐB</h1>
+          <p className="text-gray-600 mt-2">Trợ lý pháp lý thông minh của bạn</p>
         </div>
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Welcome back</CardTitle>
+            <CardTitle>Chào mừng trở lại</CardTitle>
             <CardDescription>
-              Sign in to access your transportation law research assistant
+              Đang nhập để tiếp tục sử dụng trợ lý pháp lý thông minh của bạn.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -101,7 +101,7 @@ const Login = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="Nhập email của bạn"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -114,7 +114,7 @@ const Login = () => {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder="Nhập mật khẩu của bạn"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -146,15 +146,15 @@ const Login = () => {
                 className="w-full bg-blue-600 hover:bg-blue-700" 
                 disabled={isLoading}
               >
-                {isLoading ? 'Signing in...' : 'Sign in'}
+                {isLoading ? 'Signing in...' : 'Đăng nhập'}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
+                Chưa có tài khoản?{' '}
                 <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-                  Sign up
+                  Đăng ký ngay
                 </Link>
               </p>
             </div>

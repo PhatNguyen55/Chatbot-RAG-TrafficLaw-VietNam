@@ -97,7 +97,7 @@ const Signup = () => {
           <CardHeader>
             <CardTitle>Tạo tài khoản của bạn</CardTitle>
             <CardDescription>
-              Tham gia cùng hàng ngàn người dùng khác sử dụng trợ lý AI của chúng tôi
+              Tham gia sử dụng trợ lý AI của chúng tôi và đóng góp ý kiến để cải thiện dịch vụ.
             </CardDescription>
           </CardHeader>
           <CardContent>

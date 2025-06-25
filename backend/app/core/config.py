@@ -28,8 +28,9 @@ class Settings(BaseSettings):
     # Các biến không đọc từ .env
     API_V1_STR: str = "/api/v1"
     PDF_DIRECTORY: str = "data/pdfs"
-    VECTOR_STORE_DIRECTORY: str = "data/vector_store"
+    VECTOR_STORE_DIRECTORY: str = "data/vector_store/Chroma"
     ALL_CHUNKS_PATH: str = "data/vector_store/all_chunks.pkl"
+    ALL_CHUNKS_JSON_PATH: str = "data/vector_store/all_chunks.json"
     MODELS_DIRECTORY: str = "models"
 
     # Không cần class Config ở đây nữa vì chúng ta đã load thủ công

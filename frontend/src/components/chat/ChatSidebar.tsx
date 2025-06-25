@@ -38,8 +38,8 @@ const ChatSidebar = ({
               <Scale className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h1 className="font-semibold text-gray-900">Transportation Law AI</h1>
-              <p className="text-sm text-gray-500">Legal Assistant</p>
+              <h1 className="font-semibold text-gray-900">LawBot</h1>
+              <p className="text-sm text-gray-500">Trợ lý luật GTĐB</p>
             </div>
           </div>
         )}

@@ -9,11 +9,12 @@ interface ChatGreetingProps {
 
 const ChatGreeting = ({ onQuickStart }: ChatGreetingProps) => {
   const quickStartQuestions = [
-    "What are the speed limits in residential areas?",
-    "Tell me about commercial vehicle regulations",
-    "What are the DUI laws for commercial drivers?",
-    "Explain right-of-way rules at intersections"
+    "Tốc độ tối đa cho xe máy trong khu dân cư là bao nhiêu?",
+    "Quy định về độ tuổi được phép thi bằng lái xe máy tại Việt Nam?",
+    "Khi gặp đèn vàng thì người tham gia giao thông phải làm gì?",
+    "Xe nào được quyền ưu tiên khi vào vòng xuyến?"
   ];
+
 
   return (
     <div className="flex-1 flex items-center justify-center p-8">
@@ -22,10 +23,9 @@ const ChatGreeting = ({ onQuickStart }: ChatGreetingProps) => {
           <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto">
             <Scale className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome to Transportation Law AI</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Chào mừng trở lại với LawBot</h1>
           <p className="text-lg text-gray-600">
-            I'm your intelligent legal assistant, ready to help you with transportation law questions, 
-            regulations, and legal research. How can I assist you today?
+            Tôi là trợ lý pháp lý thông minh của bạn, sẵn sàng hỗ trợ bạn với các câu hỏi về luật giao thông, quy định và nghiên cứu pháp lý. Hôm nay tôi có thể giúp gì cho bạn?
           </p>
         </div>
 
@@ -51,7 +51,7 @@ const ChatGreeting = ({ onQuickStart }: ChatGreetingProps) => {
 
         <div className="pt-4">
           <Button variant="outline" className="text-gray-500">
-            Or ask me anything about transportation law...
+            Hoặc hỏi tôi bất kỳ câu hỏi nào về luật giao thông
           </Button>
         </div>
       </div>

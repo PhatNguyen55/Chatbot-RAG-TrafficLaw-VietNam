@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea} from '@/components/ui/scroll-area';
+// import { ScrollArea} from '@/components/ui/scroll-area';
 import { User, Bot, Copy, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 import { type Message } from '@/lib/types'; 
 import { Button } from '../ui/button';
@@ -33,8 +33,7 @@ export const ChatTimeline = ({ messages, isLoading = false }: ChatTimelineProps)
   }, [messages, isLoading]);
   
   return (
-    <ScrollArea className="flex-1 bg-white dark:bg-slate-800">
-      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
+     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
         <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
         {messages.map((message) => {
           const isUser = message.role === 'user';
@@ -114,7 +113,6 @@ export const ChatTimeline = ({ messages, isLoading = false }: ChatTimelineProps)
         {/* Thẻ div để cuộn đến cuối cùng */}
       <div ref={messagesEndRef} />
       </div>
-    </ScrollArea>
   );
 };
 

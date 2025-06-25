@@ -13,7 +13,7 @@ interface ChatInputProps {
 const ChatInput = ({ 
   onSendMessage, 
   disabled = false,
-  placeholder = "Ask about transportation laws, traffic regulations, vehicle requirements..."
+  placeholder = "Hãy nhập câu hỏi của bạn tại đây..."
 }: ChatInputProps) => {
   const [inputMessage, setInputMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -56,7 +56,7 @@ const ChatInput = ({
           </Button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
-          This AI assistant provides general information. Always consult with a qualified attorney for legal advice.
+          Trợ lý AI này chỉ cung cấp thông tin chung, có thể sai sót. Hãy luôn tham khảo ý kiến của luật sư có chuyên môn để được tư vấn pháp lý chính xác.
         </p>
       </div>
     </div>

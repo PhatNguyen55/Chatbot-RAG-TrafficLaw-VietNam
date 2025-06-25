@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 import datetime
 
@@ -7,9 +7,9 @@ class Source(BaseModel):
     # Thêm các trường metadata khác nếu bạn muốn trả về cho frontend
     dieu: str
     
-class ChatRequest(BaseModel):
-    question: str
-    session_id: int | None = None # Frontend có thể gửi session_id cũ
+# class ChatRequest(BaseModel):
+#     question: str
+#     session_id: int | None = None # Frontend có thể gửi session_id cũ
 
 class ChatResponse(BaseModel):
     answer: str
@@ -44,3 +44,16 @@ class ChatSessionDetail(ChatSession):
     
 class ChatSessionUpdate(BaseModel):
     title: str
+    
+class HistoryItem(BaseModel):
+    # Dùng tuple [str, str] để biểu diễn (câu hỏi của user, câu trả lời của AI)
+    # Đây là định dạng mà ConversationBufferMemory mong đợi
+    # Tuy nhiên, để linh hoạt, chúng ta có thể dùng một class riêng
+    human: str
+    ai: str
+
+class ChatRequest(BaseModel):
+    question: str
+    session_id: int | None = None
+    # Thêm trường chat_history, mặc định là mảng rỗng
+    chat_history: List[HistoryItem] = Field(default_factory=list)

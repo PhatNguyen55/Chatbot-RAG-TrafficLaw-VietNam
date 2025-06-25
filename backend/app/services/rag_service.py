@@ -9,11 +9,13 @@ from typing import List, Dict, Any
 from langchain.schema import Document
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.embeddings import Embeddings
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferMemory
 
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from rank_bm25 import BM25Okapi
@@ -42,8 +44,8 @@ class HybridRerankingRetriever(BaseRetriever):
     bm25_searcher: BM25Okapi
     all_docs: List[Document]
     reranker: CrossEncoder
-    top_n_vector: int = 10
-    top_n_keyword: int = 10
+    top_n_vector: int = 5
+    top_n_keyword: int = 5
     top_k_final: int = 4
 
     def _get_relevant_documents(
@@ -82,7 +84,18 @@ class HybridRerankingRetriever(BaseRetriever):
         return reranked_docs
 
 # Prompt Template được thiết kế kỹ lưỡng
+CONDENSE_QUESTION_PROMPT_TEMPLATE = """Dựa vào đoạn hội thoại dưới đây và một câu hỏi tiếp theo, hãy diễn giải câu hỏi tiếp theo thành một câu hỏi độc lập, đầy đủ bằng tiếng Việt.
+
+Lịch sử trò chuyện:
+{chat_history}
+
+Câu hỏi tiếp theo: {question}
+Câu hỏi độc lập:"""
+
+CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(CONDENSE_QUESTION_PROMPT_TEMPLATE)
+                                                        
 RAG_PROMPT_TEMPLATE = """
+Bạn tên là LawBot
 Bạn là một Trợ lý AI chuyên gia về Luật Giao thông Đường bộ Việt Nam.
 Nhiệm vụ của bạn là cung cấp câu trả lời chính xác, rõ ràng và hữu ích cho người dùng dựa **DUY NHẤT** vào các trích đoạn văn bản luật trong phần "NGỮ CẢNH" dưới đây.
 
@@ -109,7 +122,8 @@ RAG_PROMPT = PromptTemplate(template=RAG_PROMPT_TEMPLATE, input_variables=["cont
 
 class RAGService:
     def __init__(self):
-        self.qa_chain = None
+        # self.qa_chain = None
+        self.conversation_chain = None
         self.is_ready = False
         print("Initializing RAG Service...")
 
@@ -157,25 +171,29 @@ class RAGService:
             )
 
             
-            # 4. Tải dữ liệu đã xử lý
+             # 4. Tải dữ liệu chunks (chỉ cần cho BM25)
             with open(settings.ALL_CHUNKS_PATH, "rb") as f:
                 all_chunks = pickle.load(f)
 
             # 5. Xây dựng các index
-            # ChromaDB (Vector Index)
-            # Chúng ta sẽ tạo mới ChromaDB trong bộ nhớ mỗi khi server khởi động
-            # Điều này nhanh hơn là load từ đĩa và đảm bảo dữ liệu luôn mới nhất
-            langchain_embedding = SentenceTransformerEmbeddings(embedding_model)
-            self.vector_store = Chroma.from_documents(
-                documents=all_chunks,
-                embedding=langchain_embedding
-            )
             
-            # BM25 (Keyword Index)
+            # 5a. Tải ChromaDB từ đĩa
+            print(f"Loading Vector Store from disk: {settings.VECTOR_STORE_DIRECTORY}")
+            langchain_embedding = SentenceTransformerEmbeddings(embedding_model) # Vẫn cần hàm embedding để load
+            
+            # Thay vì Chroma.from_documents, chúng ta khởi tạo Chroma và trỏ đến thư mục đã lưu
+            self.vector_store = Chroma(
+                persist_directory=settings.VECTOR_STORE_DIRECTORY,
+                embedding_function=langchain_embedding
+            )
+            print(f"✅ Vector Store loaded successfully with {self.vector_store._collection.count()} documents.")
+
+            # 5b. Tạo BM25 Index (vẫn tạo trong RAM khi khởi động)
+            print("Creating BM25 Index in memory...")
             corpus = [chunk.page_content for chunk in all_chunks]
             tokenized_corpus = [doc.split(" ") for doc in corpus]
             bm25_index = BM25Okapi(tokenized_corpus)
-
+            
             # 6. Tạo retriever lai ghép
             hybrid_retriever = HybridRerankingRetriever(
                 vector_store=self.vector_store,
@@ -185,12 +203,37 @@ class RAGService:
             )
 
             # 7. Tạo QA chain cuối cùng
-            self.qa_chain = RetrievalQA.from_chain_type(
+            # self.qa_chain = RetrievalQA.from_chain_type(
+            #     llm=self.llm,
+            #     chain_type="stuff",
+            #     retriever=hybrid_retriever,
+            #     return_source_documents=True,
+            #     chain_type_kwargs={"prompt": RAG_PROMPT}
+            # )
+            
+            # 7. Thiết lập Bộ nhớ (Memory)
+            # ConversationBufferMemory sẽ lưu trữ lịch sử chat trong RAM.
+            # return_messages=True để nó trả về dưới dạng list các đối tượng Message.
+            print("   - Setting up conversation memory...")
+            self.memory = ConversationBufferMemory(
+                memory_key='chat_history',
+                return_messages=True,
+                output_key='answer' # Chỉ định key cho câu trả lời của AI
+            )
+
+            # 8. Tạo ConversationalRetrievalChain
+            # Đây là chain có khả năng "nhớ"
+            print("   - Creating ConversationalRetrievalChain...")
+            self.conversation_chain = ConversationalRetrievalChain.from_llm(
                 llm=self.llm,
-                chain_type="stuff",
-                retriever=hybrid_retriever,
-                return_source_documents=True,
-                chain_type_kwargs={"prompt": RAG_PROMPT}
+                retriever=hybrid_retriever, # Dùng retriever lai ghép của chúng ta
+                memory=self.memory,
+                return_source_documents=True, # Vẫn trả về source
+                # <<< CUNG CẤP PROMPT ĐỂ TẠO CÂU HỎI ĐỘC LẬP >>>
+                condense_question_prompt=CONDENSE_QUESTION_PROMPT,
+                
+                # <<< CUNG CẤP PROMPT ĐỂ TẠO CÂU TRẢ LỜI CUỐI CÙNG >>>
+                combine_docs_chain_kwargs={"prompt": RAG_PROMPT} 
             )
             
             self.is_ready = True
@@ -199,26 +242,58 @@ class RAGService:
             print(f"❌ Failed to load RAG Service: {e}")
             self.is_ready = False
 
-    def ask(self, question: str) -> Dict[str, Any]:
+    # --- SỬA LẠI HOÀN TOÀN HÀM ASK ---
+    def ask(self, question: str, chat_history: list = []) -> Dict[str, Any]:
         """
-        Hàm để xử lý một câu hỏi từ người dùng.
+        Hàm xử lý một câu hỏi, có nhận vào lịch sử chat và xử lý các loại câu hỏi khác nhau.
         """
-        if not self.is_ready or not self.qa_chain:
+        if not self.is_ready:
             return {
-                "answer": "Xin lỗi, hệ thống đang gặp sự cố và chưa sẵn sàng. Vui lòng thử lại sau.",
+                "answer": "Xin lỗi, hệ thống đang khởi động và chưa sẵn sàng. Vui lòng thử lại sau giây lát.",
                 "sources": []
             }
         
         try:
-            result = self.qa_chain.invoke({"query": question})
+            # --- BỘ LỌC CÂU HỎI META ---
+            meta_questions = ["bạn là ai", "bạn tên gì", "tôi vừa hỏi gì", "câu trước tôi hỏi"]
+            is_meta_question = any(q in question.lower() for q in meta_questions)
+            
+            if is_meta_question:
+                print("INFO: Detected a meta-conversation question.")
+                if not chat_history:
+                    # Nếu chưa có lịch sử, trả lời câu hỏi giới thiệu
+                    return {
+                        "answer": "Tôi là LawBot, một trợ lý AI chuyên về Luật Giao thông đường bộ Việt Nam. Tôi có thể giúp gì cho bạn?", 
+                        "sources": []
+                    }
+                
+                # Nếu có lịch sử, đưa cả lịch sử và câu hỏi cho LLM để tóm tắt
+                conversation_context = "\n".join([f"Người dùng: {h.content}" if hasattr(h, 'content') else f"AI: {h.content}" for h in chat_history])
+                prompt = f"Dựa vào lịch sử hội thoại ngắn gọn sau, hãy trả lời câu hỏi của người dùng một cách tự nhiên. Lịch sử chỉ dùng để tham khảo ngữ cảnh, không cần nhắc lại nó. \n\nLịch sử:\n{conversation_context}\n\nCâu hỏi của người dùng: {question}\n\nCâu trả lời của bạn:"
+                
+                # Sử dụng llm trực tiếp thay vì conversation_chain
+                if not self.llm:
+                     return {"answer": "Lỗi: LLM chưa được khởi tạo.", "sources": []}
+                
+                response = self.llm.invoke(prompt)
+                return {"answer": response.content, "sources": []}
+
+            # --- NẾU KHÔNG PHẢI CÂU HỎI META, CHẠY RAG CHAIN ---
+            print("INFO: Executing ConversationalRetrievalChain...")
+            if not self.conversation_chain:
+                return {"answer": "Lỗi: Conversation chain chưa được khởi tạo.", "sources": []}
+
+            result = self.conversation_chain.invoke({
+                "question": question,
+                "chat_history": chat_history 
+            })
+            
+            answer = result.get("answer", "Không tìm thấy câu trả lời trong tài liệu.")
             sources = [doc.metadata for doc in result.get("source_documents", [])]
             
-            return {
-                "answer": result["result"],
-                "sources": sources
-            }
+            return { "answer": answer, "sources": sources }
         except Exception as e:
-            print(f"Error during QA chain invocation: {e}")
+            print(f"Error during conversation chain invocation: {e}")
             return {
                 "answer": "Đã có lỗi xảy ra trong quá trình xử lý câu hỏi của bạn.",
                 "sources": []
