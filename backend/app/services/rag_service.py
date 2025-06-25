@@ -1,5 +1,6 @@
 import os
 import pickle
+import re
 import numpy as np
 import torch
 # import sentencepiece
@@ -37,6 +38,7 @@ class SentenceTransformerEmbeddings(Embeddings):
 
     def embed_query(self, text: str) -> List[float]:
         return self.model.encode([text], convert_to_tensor=False)[0].tolist()
+    
 
 class HybridRerankingRetriever(BaseRetriever):
     """Retriever lai ghép, kết hợp vector và keyword, sau đó re-rank."""
@@ -44,16 +46,20 @@ class HybridRerankingRetriever(BaseRetriever):
     bm25_searcher: BM25Okapi
     all_docs: List[Document]
     reranker: CrossEncoder
-    top_n_vector: int = 5
-    top_n_keyword: int = 5
-    top_k_final: int = 4
+    top_n_vector: int = 7
+    top_n_keyword: int = 7
+    top_k_final: int = 5
 
     def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun, where_filter: Dict[str, Any] = None
     ) -> List[Document]:
         
-        # 1. Vector Search
-        vector_docs = self.vector_store.similarity_search(query, k=self.top_n_vector)
+        # 1. Vector Search với bộ lọc metadata (nếu có)
+        print(f"DEBUG: Performing vector search with filter: {where_filter}")
+        if where_filter:
+            vector_docs = self.vector_store.similarity_search(query, k=self.top_n_vector, filter=where_filter)
+        else:
+            vector_docs = self.vector_store.similarity_search(query, k=self.top_n_vector)
         
         # 2. Keyword Search (BM25)
         tokenized_query = query.split(" ")
@@ -83,6 +89,53 @@ class HybridRerankingRetriever(BaseRetriever):
         
         return reranked_docs
 
+QUERY_EXPANSION_MAP = {
+    "vượt đèn đỏ": "không chấp hành hiệu lệnh của đèn tín hiệu giao thông",
+    "vượt đèn vàng": "không chấp hành hiệu lệnh đèn tín hiệu",
+    "không đội mũ bảo hiểm": "không đội mũ bảo hiểm hoặc đội mũ không cài quai đúng quy cách",
+    "say xỉn": "có nồng độ cồn trong máu hoặc hơi thở",
+    "uống rượu bia lái xe": "điều khiển phương tiện có nồng độ cồn",
+    "đi sai làn": "đi không đúng làn đường hoặc phần đường quy định",
+    "lái xe quá tốc độ": "điều khiển xe chạy quá tốc độ cho phép",
+    "bị phạt nguội": "xử phạt qua hệ thống giám sát tự động",
+    "không bằng lái": "không có giấy phép lái xe",
+    "không có bằng lái": "không có giấy phép lái xe",
+}
+
+def expand_query(query: str) -> str:
+    """Mở rộng câu hỏi bằng cách thay thế thuật ngữ phổ thông bằng thuật ngữ pháp lý."""
+    # Dùng lower() để bắt được nhiều trường hợp hơn
+    lower_query = query.lower()
+    for key, legal_term in QUERY_EXPANSION_MAP.items():
+        if key in lower_query:
+            # Trả về cả hai để tăng khả năng tìm kiếm
+            return f"{query} ({legal_term})" 
+    return query
+    
+def extract_query_details(query: str) -> dict:
+        """Dùng regex để tìm kiếm số hiệu văn bản và số điều trong câu hỏi."""
+        details = {}
+        # Ví dụ: "nghị định 100", "luật 35/2024", "thông tư 79"
+        doc_match = re.search(r'(luật|nghị định|thông tư)\s*(\d+/?\d*)', query, re.IGNORECASE)
+        if doc_match:
+            doc_type = doc_match.group(1).lower()
+            doc_num = doc_match.group(2)
+            if "luật" in doc_type:
+                details['document_type'] = "Luật"
+            elif "nghị định" in doc_type:
+                details['document_type'] = "Nghị định"
+            elif "thông tư" in doc_type:
+                details['document_type'] = "Thông tư"
+            # Tìm kiếm một phần của document_number
+            details['document_number_partial'] = doc_num
+
+        # Ví dụ: "điều 9", "theo điều 15"
+        article_match = re.search(r'điều\s+(\d+)', query, re.IGNORECASE)
+        if article_match:
+            details['article_number'] = article_match.group(1)
+            
+        return details
+    
 # Prompt Template được thiết kế kỹ lưỡng
 CONDENSE_QUESTION_PROMPT_TEMPLATE = """Dựa vào đoạn hội thoại dưới đây và một câu hỏi tiếp theo, hãy diễn giải câu hỏi tiếp theo thành một câu hỏi độc lập, đầy đủ bằng tiếng Việt.
 
@@ -93,27 +146,34 @@ Câu hỏi tiếp theo: {question}
 Câu hỏi độc lập:"""
 
 CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(CONDENSE_QUESTION_PROMPT_TEMPLATE)
-                                                        
-RAG_PROMPT_TEMPLATE = """
-Bạn tên là LawBot
-Bạn là một Trợ lý AI chuyên gia về Luật Giao thông Đường bộ Việt Nam.
-Nhiệm vụ của bạn là cung cấp câu trả lời chính xác, rõ ràng và hữu ích cho người dùng dựa **DUY NHẤT** vào các trích đoạn văn bản luật trong phần "NGỮ CẢNH" dưới đây.
 
-**QUY TẮC BẮT BUỘC:**
-1.  **CHỈ DÙNG NGỮ CẢNH:** Câu trả lời phải hoàn toàn dựa trên thông tin có trong "NGỮ CẢNH". Không được suy diễn hay dùng kiến thức bên ngoài.
-2.  **TRÍCH DẪN NGUỒN:** Sau mỗi luận điểm, hãy trích dẫn nguồn bằng cách sử dụng thông tin metadata của văn bản. Ví dụ: "(theo Điều X, Nghị định Y)".
-3.  **KHÔNG CÓ THÔNG TIN:** Nếu "NGỮ CẢNH" không chứa thông tin để trả lời câu hỏi, hãy trả lời một cách lịch sự: "Tôi không tìm thấy thông tin cụ thể về vấn đề này trong các tài liệu được cung cấp. Bạn vui lòng làm rõ câu hỏi hoặc tham khảo các văn bản pháp lý chính thức."
-4.  **VĂN PHONG:** Sử dụng tiếng Việt, văn phong chuyên nghiệp, trang trọng nhưng dễ hiểu.
+RAG_PROMPT_TEMPLATE = """Bạn là LawBot, một chuyên gia AI về Luật Giao thông Đường bộ Việt Nam. Nhiệm vụ của bạn là trả lời câu hỏi của người dùng một cách chính xác, có căn cứ pháp lý rõ ràng, chỉ dựa vào NGỮ CẢNH được cung cấp.
 
 ---
-**NGỮ CẢNH (Trích đoạn từ văn bản luật):**
+🎯 **MỤC TIÊU CÂU TRẢ LỜI:**
+- Trình bày rõ ràng, đúng luật, có cấu trúc.
+- Ngắn gọn, dễ hiểu, phù hợp với người dân phổ thông.
+- Có trích dẫn điều luật cụ thể từ metadata có trong NGỮ CẢNH.
+
+---
+🧠 **QUY TRÌNH SUY LUẬN:**
+1.  **Phân tích câu hỏi**: Hiểu đúng yêu cầu của người dùng.
+2.  **Tìm kiếm trong NGỮ CẢNH**: Tìm tất cả thông tin liên quan đến hành vi vi phạm, mức phạt, các tình huống khác nhau (ví dụ: cho ô tô, cho xe máy, gây tai nạn).
+3.  **Cấu trúc hóa câu trả lời**: Nếu tìm được đủ thông tin, trình bày theo cấu trúc sau:
+    - Bắt đầu bằng một câu tóm tắt chung.
+    - Dùng gạch đầu dòng hoặc tiêu đề cho từng loại phương tiện (`#### 🚗 Với xe ô tô:`).
+    - Với mỗi phương tiện, ghi rõ: Mức phạt, hình phạt bổ sung.
+    - **BẮT BUỘC** trích dẫn nguồn cho mỗi thông tin bằng cách sử dụng thông tin có sẵn trong NGỮ CẢNH. Ví dụ: `(theo Điều 7 của Nghị định 168/2024/NĐ-CP)`.
+4.  **Nếu không đủ thông tin**: Trả lời lịch sự: "Dựa trên các tài liệu được cung cấp, tôi không tìm thấy thông tin cụ thể về [chủ đề]."
+5.  **Tuyệt đối KHÔNG bịa đặt**.
+
+---
+**NGỮ CẢNH:**
 {context}
 ---
-
-**CÂU HỎI CỦA NGƯỜI DÙNG:**
-{question}
-
-**CÂU TRẢ LỜI CỦA BẠN (dựa vào NGỮ CẢNH, có trích dẫn nguồn):**
+**CÂU HỎI:** {question}
+---
+**CÂU TRẢ LỜI (tuân thủ toàn bộ hướng dẫn trên):**
 """
 RAG_PROMPT = PromptTemplate(template=RAG_PROMPT_TEMPLATE, input_variables=["context", "question"])
 
@@ -202,38 +262,18 @@ class RAGService:
                 reranker=self.reranker
             )
 
-            # 7. Tạo QA chain cuối cùng
-            # self.qa_chain = RetrievalQA.from_chain_type(
-            #     llm=self.llm,
-            #     chain_type="stuff",
-            #     retriever=hybrid_retriever,
-            #     return_source_documents=True,
-            #     chain_type_kwargs={"prompt": RAG_PROMPT}
-            # )
-            
-            # 7. Thiết lập Bộ nhớ (Memory)
-            # ConversationBufferMemory sẽ lưu trữ lịch sử chat trong RAM.
-            # return_messages=True để nó trả về dưới dạng list các đối tượng Message.
-            print("   - Setting up conversation memory...")
-            self.memory = ConversationBufferMemory(
-                memory_key='chat_history',
-                return_messages=True,
-                output_key='answer' # Chỉ định key cho câu trả lời của AI
+             # Chain này sẽ là "bộ não" chính, nhưng chúng ta sẽ không dùng nó trực tiếp
+            # mà sẽ dùng các thành phần của nó.
+            memory = ConversationBufferMemory(
+                memory_key='chat_history', return_messages=True, output_key='answer'
             )
-
-            # 8. Tạo ConversationalRetrievalChain
-            # Đây là chain có khả năng "nhớ"
-            print("   - Creating ConversationalRetrievalChain...")
             self.conversation_chain = ConversationalRetrievalChain.from_llm(
                 llm=self.llm,
-                retriever=hybrid_retriever, # Dùng retriever lai ghép của chúng ta
-                memory=self.memory,
-                return_source_documents=True, # Vẫn trả về source
-                # <<< CUNG CẤP PROMPT ĐỂ TẠO CÂU HỎI ĐỘC LẬP >>>
+                retriever=hybrid_retriever,
+                memory=memory,
+                return_source_documents=True,
                 condense_question_prompt=CONDENSE_QUESTION_PROMPT,
-                
-                # <<< CUNG CẤP PROMPT ĐỂ TẠO CÂU TRẢ LỜI CUỐI CÙNG >>>
-                combine_docs_chain_kwargs={"prompt": RAG_PROMPT} 
+                combine_docs_chain_kwargs={"prompt": RAG_PROMPT}
             )
             
             self.is_ready = True
@@ -242,62 +282,59 @@ class RAGService:
             print(f"❌ Failed to load RAG Service: {e}")
             self.is_ready = False
 
-    # --- SỬA LẠI HOÀN TOÀN HÀM ASK ---
     def ask(self, question: str, chat_history: list = []) -> Dict[str, Any]:
         """
-        Hàm xử lý một câu hỏi, có nhận vào lịch sử chat và xử lý các loại câu hỏi khác nhau.
+        Hàm xử lý câu hỏi, sử dụng trực tiếp ConversationalRetrievalChain.
         """
-        if not self.is_ready:
-            return {
-                "answer": "Xin lỗi, hệ thống đang khởi động và chưa sẵn sàng. Vui lòng thử lại sau giây lát.",
-                "sources": []
-            }
+        if not self.is_ready or not self.conversation_chain:
+            return {"answer": "Hệ thống chưa sẵn sàng...", "sources": []}
         
         try:
-            # --- BỘ LỌC CÂU HỎI META ---
-            meta_questions = ["bạn là ai", "bạn tên gì", "tôi vừa hỏi gì", "câu trước tôi hỏi"]
-            is_meta_question = any(q in question.lower() for q in meta_questions)
-            
-            if is_meta_question:
-                print("INFO: Detected a meta-conversation question.")
-                if not chat_history:
-                    # Nếu chưa có lịch sử, trả lời câu hỏi giới thiệu
-                    return {
-                        "answer": "Tôi là LawBot, một trợ lý AI chuyên về Luật Giao thông đường bộ Việt Nam. Tôi có thể giúp gì cho bạn?", 
-                        "sources": []
-                    }
-                
-                # Nếu có lịch sử, đưa cả lịch sử và câu hỏi cho LLM để tóm tắt
-                conversation_context = "\n".join([f"Người dùng: {h.content}" if hasattr(h, 'content') else f"AI: {h.content}" for h in chat_history])
-                prompt = f"Dựa vào lịch sử hội thoại ngắn gọn sau, hãy trả lời câu hỏi của người dùng một cách tự nhiên. Lịch sử chỉ dùng để tham khảo ngữ cảnh, không cần nhắc lại nó. \n\nLịch sử:\n{conversation_context}\n\nCâu hỏi của người dùng: {question}\n\nCâu trả lời của bạn:"
-                
-                # Sử dụng llm trực tiếp thay vì conversation_chain
-                if not self.llm:
-                     return {"answer": "Lỗi: LLM chưa được khởi tạo.", "sources": []}
-                
-                response = self.llm.invoke(prompt)
-                return {"answer": response.content, "sources": []}
+            # Logic xử lý meta-question vẫn hữu ích
+            meta_questions = ["bạn là ai", "bạn tên gì"]
+            if any(q in question.lower() for q in meta_questions):
+                return {"answer": "Tôi là LawBot, một trợ lý AI chuyên về Luật Giao thông...", "sources": []}
 
-            # --- NẾU KHÔNG PHẢI CÂU HỎI META, CHẠY RAG CHAIN ---
-            print("INFO: Executing ConversationalRetrievalChain...")
-            if not self.conversation_chain:
-                return {"answer": "Lỗi: Conversation chain chưa được khởi tạo.", "sources": []}
+            # --- BƯỚC 2: Mở rộng câu hỏi của người dùng ---
+            expanded_question = expand_query(question)
+            print(f"INFO: Expanded Query: '{expanded_question}'")
+            
+            # --- BƯỚC 3: Tái cấu trúc câu hỏi dựa trên lịch sử ---
+            # Chúng ta sẽ gọi riêng phần "tạo câu hỏi" của chain
+            _inputs = {"question": expanded_question, "chat_history": chat_history}
+            result_from_generator = self.conversation_chain.question_generator.invoke(_inputs)
+            # Lấy giá trị từ key 'text' thay vì gán cả dictionary
+            standalone_question = result_from_generator.get('text', expanded_question) 
+            
+            print(f"INFO: Standalone question: '{standalone_question}'")
+            # --- BƯỚC 4: Trích xuất metadata và Lọc ---
+            query_details = extract_query_details(standalone_question)
+            where_filter = {}
+            if query_details.get('document_number_partial'):
+                where_filter['document_number'] = {"$contains": query_details['document_number_partial']}
+            if query_details.get('article_number'):
+                where_filter['article_number'] = query_details['article_number']
+            
+            final_filter = where_filter if where_filter else None
+            
+            # Gọi retriever với câu hỏi độc lập và bộ lọc
+            retriever = self.conversation_chain.retriever
+            docs = retriever.invoke(standalone_question, config={"configurable": {"where_filter": final_filter}})
 
-            result = self.conversation_chain.invoke({
-                "question": question,
-                "chat_history": chat_history 
-            })
+            # --- BƯỚC 5: Gọi chain sinh câu trả lời ---
+            # Chúng ta gọi riêng phần "kết hợp tài liệu" của chain
+            new_inputs = {"question": standalone_question, "input_documents": docs}
+            answer = self.conversation_chain.combine_docs_chain.invoke(new_inputs)
             
-            answer = result.get("answer", "Không tìm thấy câu trả lời trong tài liệu.")
-            sources = [doc.metadata for doc in result.get("source_documents", [])]
-            
-            return { "answer": answer, "sources": sources }
+            sources = [doc.metadata for doc in answer.get("input_documents", [])]
+
+            return {"answer": answer.get("output_text"), "sources": sources}
+
         except Exception as e:
-            print(f"Error during conversation chain invocation: {e}")
-            return {
-                "answer": "Đã có lỗi xảy ra trong quá trình xử lý câu hỏi của bạn.",
-                "sources": []
-            }
+            print(f"ERROR in ask function: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"answer": "Đã có lỗi nghiêm trọng xảy ra...", "sources": []}
 
 # Tạo một instance duy nhất (singleton) để import và sử dụng trong toàn bộ ứng dụng
 rag_service = RAGService()

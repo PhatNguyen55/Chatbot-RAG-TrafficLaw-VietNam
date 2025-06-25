@@ -114,7 +114,7 @@ const ChatSessionManager = ({
       <div className="p-4">
         <Button 
           onClick={onCreateNew}
-          className="w-full justify-start gap-2 bg-blue-600 hover:bg-blue-700"
+          className="w-full justify-start gap-2 text-white bg-blue-600 hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
           New Chat

@@ -11,6 +11,7 @@ from typing import List, Dict, Any
 from langchain.schema import Document
 from sentence_transformers import SentenceTransformer
 from langchain_chroma import Chroma
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # --- CÁC HÀM TIỆN ÍCH CHO VIỆC XỬ LÝ VĂN BẢN ---
 
@@ -82,55 +83,59 @@ def extract_document_details(filename: str) -> Dict[str, Any]:
     return details
 
 def split_law_document_semantically(cleaned_full_text: str, source_filename: str) -> List[Document]:
-    """Chia văn bản pháp quy theo cấu trúc ngữ nghĩa (Chương -> Mục -> Điều) và gán metadata chi tiết."""
-    if not cleaned_full_text:
-        return []
-
+    """
+    Chia văn bản theo từng Điều, sau đó chia nhỏ các Điều quá dài một cách thông minh.
+    """
     doc_details = extract_document_details(source_filename)
-    
     documents = []
-    current_chuong = "Không xác định"
-    current_muc = None
-
-    articles = re.split(r'(?=\nChương\s+[IVXLCDM\d]+\.?[ \t]*\n|\nMục\s+\d+\.?[ \t]*\n|\nĐiều\s+\d+\.?:?[ \t]*)', cleaned_full_text)
-    articles = [article.strip() for article in articles if article.strip()]
-
-    for article_text in articles:
-        chuong_match = re.match(r'Chương\s+([IVXLCDM\d]+)\.?\s*(.*?)\n', article_text, re.IGNORECASE)
-        muc_match = re.match(r'Mục\s+(\d+)\.?\s*(.*?)\n', article_text, re.IGNORECASE)
-        dieu_match = re.match(r'Điều\s+(\d+)\.?:?\s*(.*)', article_text, re.IGNORECASE)
-
-        if chuong_match:
-            chuong_so = chuong_match.group(1)
-            chuong_ten = chuong_match.group(2).strip()
-            current_chuong = f"Chương {chuong_so} - {chuong_ten}"
-            current_muc = None
-            continue
-        
-        if muc_match:
-            muc_so = muc_match.group(1)
-            muc_ten = muc_match.group(2).strip()
-            current_muc = f"Mục {muc_so} - {muc_ten}"
-            continue
-            
-        if dieu_match:
-            dieu_so = dieu_match.group(1)
-            dieu_ten = dieu_match.group(2).strip().split('\n')[0]
-            dieu_title = f"Điều {dieu_so}. {dieu_ten}"
-
-            metadata = {
-                "source_file": source_filename,
-                "document_type": doc_details["document_type"],
-                "document_number": doc_details["document_number"],
-                "document_date": doc_details["document_date"],
-                "chuong": current_chuong,
-                "dieu": dieu_title,
-            }
-            if current_muc:
-                metadata["muc"] = current_muc
-            
-            documents.append(Document(page_content=article_text.strip(), metadata=metadata))
     
+    current_chuong = ""
+    
+    # Dùng text_splitter để chia nhỏ các Điều quá dài
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=2000, # Độ dài tối đa của một chunk (tính bằng ký tự)
+        chunk_overlap=200, # Các chunk sẽ gối lên nhau 200 ký tự
+        length_function=len,
+        is_separator_regex=False,
+        separators=["\n\n", "\n", ". ", ", ", " "], # Các dấu ngắt ưu tiên
+    )
+
+    # Tách toàn bộ văn bản thành các Điều
+    articles = re.split(r'(?=\nChương\s+[IVXLCDM\d]+|\nĐiều\s+\d+)', cleaned_full_text)
+    
+    for text_block in articles:
+        text_block = text_block.strip()
+        if not text_block: continue
+
+        chuong_match = re.match(r'Chương\s+([IVXLCDM\d]+)\.?\s*(.*)', text_block, re.IGNORECASE)
+        if chuong_match:
+            current_chuong = f"Chương {chuong_match.group(1)} - {chuong_match.group(2).strip()}"
+            continue
+
+        dieu_match = re.match(r'Điều\s+(\d+)\.?:?\s*(.*)', text_block, re.IGNORECASE)
+        if not dieu_match: continue
+
+        dieu_so = dieu_match.group(1)
+        dieu_ten = dieu_match.group(2).strip().split('\n')[0]
+        dieu_title = f"Điều {dieu_so}. {dieu_ten}"
+        
+        base_metadata = {
+            "source_file": source_filename,
+            "document_type": doc_details["document_type"],
+            "document_number": doc_details["document_number"],
+            "chuong": current_chuong,
+            "dieu": dieu_title,
+            "article_number": dieu_so,
+        }
+        
+        # Thêm header ngữ cảnh vào nội dung của Điều
+        contextual_header = f"Trích từ: {doc_details['document_type']} {doc_details['document_number']}, {current_chuong}\n\n"
+        content_with_header = contextual_header + text_block
+
+        # Sử dụng text_splitter để chia Điều này thành các chunk nhỏ hơn nếu cần
+        chunks = text_splitter.create_documents([content_with_header], metadatas=[base_metadata])
+        documents.extend(chunks)
+            
     return documents
 
 # --- HÀM ĐIỀU PHỐI CHÍNH ---
@@ -160,7 +165,7 @@ def process_and_save_data(pdf_dir: str, all_chunks_path: str, json_all_chunks_pa
     print(f"\nLọc {len(all_chunks)} chunks thô...")
     final_chunks = [
         chunk for chunk in all_chunks 
-        if len(chunk.page_content.split()) > 15 # Chỉ giữ chunk có hơn 15 từ
+        if len(chunk.page_content.split()) > 8 # Chỉ giữ chunk có hơn 8 từ
     ]
     print(f"✅ Đã lọc, còn lại {len(final_chunks)} chunks chất lượng.")
 
