@@ -3,10 +3,16 @@
 import { useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 // import { ScrollArea} from '@/components/ui/scroll-area';
-import { User, Bot, Copy, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
-import { type Message } from '@/lib/types'; 
+import { User, Bot, Copy, FileText, BookText, Loader2 } from 'lucide-react';
+import { type Message} from '@/lib/types'; 
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface ChatTimelineProps {
   messages: Message[];
@@ -59,40 +65,51 @@ export const ChatTimeline = ({ messages, isLoading = false }: ChatTimelineProps)
                 {/*  BỔ SUNG LẠI TÍNH NĂNG RAG: TRÍCH DẪN NGUỒN VÀ CÁC NÚT TIỆN ÍCH */}
                 {/* ================================================================ */}
                 {!isUser && message.sources && message.sources.length > 0 && (
-                  <div className="pt-2 space-y-4">
-                    {/* 1. Phần trích dẫn nguồn */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">NGUỒN THAM KHẢO:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {/* Lặp qua message.sources */}
-                        {message.sources.map((source, index) => (
-                          // Bây giờ nó là một thẻ span, không phải link <a>
-                          <span 
-                            key={index} 
-                            className="text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md transition-colors cursor-default"
-                            // Thêm tooltip để hiển thị thông tin đầy đủ khi di chuột vào
-                            title={`Văn bản: ${source.document_number} - File: ${source.source_file}`}
-                          >
-                            {/* Hiển thị thông tin chính từ source */}
-                            {source.dieu}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 2. Các nút tiện ích (Copy, Feedback) */}
+                  <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="item-1">
+                      <AccordionTrigger className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <BookText className="h-4 w-4" />
+                          Tài liệu tham khảo ({message.sources.length} tài liệu)
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-3 pl-2 pt-2 border-l-2 border-slate-200 dark:border-slate-700">
+                          {message.sources.map((source, index) => (
+                            <div key={index} className="text-xs">
+                              <div className="flex items-start gap-2">
+                                <FileText className="h-3.5 w-3.5 mt-0.5 text-slate-500 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <p className="font-medium text-slate-800 dark:text-slate-200">
+                                    {/* Link đến API xem PDF (sẽ làm ở phần 2) */}
+                                    <a
+                                      href={`http://127.0.0.1:8000/api/v1/documents/view/${source.source_file}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="hover:underline hover:text-blue-600"
+                                    >
+                                      ({source.document_number}) - {source.dieu}
+                                    </a>
+                                  </p>
+                                  {/* Hiển thị một phần nội dung gốc của chunk */}
+                                  <p className="mt-1 text-slate-600 dark:text-slate-400 italic">
+                                    📝 Nội dung: {source.page_content.substring(0, 150)}...
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                     <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
                         <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => handleCopy(message.content)}>
                             <Copy className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="w-7 h-7">
-                            <ThumbsUp className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="w-7 h-7">
-                            <ThumbsDown className="w-3.5 h-3.5" />
-                        </Button>
                     </div>
-                  </div>
+                </div>
                 )}
               </div>
             </div>

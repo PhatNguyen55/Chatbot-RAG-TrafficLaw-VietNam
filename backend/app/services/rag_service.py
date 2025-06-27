@@ -326,7 +326,11 @@ class RAGService:
             new_inputs = {"question": standalone_question, "input_documents": docs}
             answer = self.conversation_chain.combine_docs_chain.invoke(new_inputs)
             
-            sources = [doc.metadata for doc in answer.get("input_documents", [])]
+            # sources = [doc.metadata for doc in answer.get("input_documents", [])]
+            sources = [
+            {**doc.metadata, "page_content": doc.page_content} 
+            for doc in answer.get("input_documents", [])
+            ]
 
             return {"answer": answer.get("output_text"), "sources": sources}
 

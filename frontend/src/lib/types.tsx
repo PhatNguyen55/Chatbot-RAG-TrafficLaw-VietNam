@@ -25,6 +25,7 @@ export interface Source {
   muc?: string | null;
   // Thêm 'title' như một thuộc tính tùy chọn để tương thích ngược nếu cần
   title?: string;
+  page_content: string;
 }
 
 /**

@@ -4,12 +4,15 @@ import datetime
 
 class Source(BaseModel):
     source_file: str
-    # Thêm các trường metadata khác nếu bạn muốn trả về cho frontend
+    document_type: str
+    document_number: str
+    chuong: str
     dieu: str
+    muc: str | None = None
+    article_number: str
+    # Thêm các trường khác nếu có
+    page_content: str # <-- Bắt buộc phải có
     
-# class ChatRequest(BaseModel):
-#     question: str
-#     session_id: int | None = None # Frontend có thể gửi session_id cũ
 
 class ChatResponse(BaseModel):
     answer: str

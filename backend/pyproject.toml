@@ -42,6 +42,7 @@ dependencies = [
     "asyncpg (>=0.30.0,<0.31.0)",
     "python-multipart (>=0.0.20,<0.0.21)",
     "langchain-chroma (>=0.2.4,<0.3.0)",
+    "aiofiles (>=24.1.0,<25.0.0)",
 ]
 
 [build-system]
