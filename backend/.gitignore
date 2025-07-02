@@ -6,3 +6,5 @@ models/
 *.pyd
 poetry.lock
 alembic/
+charts/
+evaluate/

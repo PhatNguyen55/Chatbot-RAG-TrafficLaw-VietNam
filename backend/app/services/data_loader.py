@@ -58,28 +58,31 @@ def extract_document_details(filename: str) -> Dict[str, Any]:
     """Trích xuất loại văn bản, số hiệu và ngày ban hành từ tên file để làm metadata."""
     details = {"document_type": "Văn bản khác", "document_number": "Không xác định", "document_date": "Không xác định"}
     filename_lower = filename.lower()
-    
-    luat_match = re.search(r'luat-(\d+)-(\d{4})-qh\d+', filename_lower)
+
+    # Luật: luat-35-2024-qh15.pdf hoặc luat_35_2024_qh15.pdf
+    luat_match = re.search(r'luat[-_](\d+)[-_](\d{4})[-_]qh\d+', filename_lower)
     if luat_match:
         details["document_type"] = "Luật"
         details["document_number"] = f"{luat_match.group(1)}/{luat_match.group(2)}/QH15"
         details["document_date"] = f"{luat_match.group(2)}"
         return details
-    
-    nghi_dinh_match = re.search(r'nghi-dinh-(\d+)_(\d{4})_nd-cp', filename_lower)
+
+    # Nghị định: nghi-dinh-168-2024-nd-cp.pdf, nghi_dinh_168_2024_nd-cp.pdf, nghi-dinh-10-2020-nd-cp.pdf
+    nghi_dinh_match = re.search(r'nghi[-_]?dinh[-_]?(\d+)[-_](\d{4})[-_]?nd-cp', filename_lower)
     if nghi_dinh_match:
         details["document_type"] = "Nghị định"
         details["document_number"] = f"{nghi_dinh_match.group(1)}/{nghi_dinh_match.group(2)}/NĐ-CP"
         details["document_date"] = f"{nghi_dinh_match.group(2)}"
         return details
-    
-    thong_tu_match = re.search(r'thong-tu-(\d+)-(\d{4})-tt-bca', filename_lower)
+
+    # Thông tư: thong-tu-79-2023-tt-bca.pdf, thong_tu_79_2023_tt-bca.pdf, thong-tu-65-2020-tt-bca.pdf
+    thong_tu_match = re.search(r'thong[-_]?tu[-_]?(\d+)[-_](\d{4})[-_]?tt', filename_lower)
     if thong_tu_match:
         details["document_type"] = "Thông tư"
-        details["document_number"] = f"{thong_tu_match.group(1)}/{thong_tu_match.group(2)}/TT-BCA"
+        details["document_number"] = f"{thong_tu_match.group(1)}/{thong_tu_match.group(2)}/TT"
         details["document_date"] = f"{thong_tu_match.group(2)}"
         return details
-    
+
     return details
 
 def split_law_document_semantically(cleaned_full_text: str, source_filename: str) -> List[Document]:

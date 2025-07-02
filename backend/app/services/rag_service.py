@@ -46,8 +46,8 @@ class HybridRerankingRetriever(BaseRetriever):
     bm25_searcher: BM25Okapi
     all_docs: List[Document]
     reranker: CrossEncoder
-    top_n_vector: int = 7
-    top_n_keyword: int = 7
+    top_n_vector: int = 15
+    top_n_keyword: int = 15
     top_k_final: int = 5
 
     def _get_relevant_documents(
@@ -82,11 +82,28 @@ class HybridRerankingRetriever(BaseRetriever):
         # 4. Re-ranking
         sentence_pairs = [[query, doc.page_content] for doc in combined_docs]
         scores = self.reranker.predict(sentence_pairs, show_progress_bar=False)
-        
-        scored_docs = sorted(zip(scores, combined_docs), key=lambda x: x[0], reverse=True)
-        
+
+        # --- Metadata boosting ---
+        adjusted_scores = []
+        for score, doc in zip(scores, combined_docs):
+            meta_boost = 0
+            # Ưu tiên nếu điều luật khớp
+            if where_filter and 'article_number' in where_filter and 'article_number' in doc.metadata:
+                if str(doc.metadata['article_number']) == str(where_filter['article_number']):
+                    meta_boost += 0.5
+            # Ưu tiên nếu văn bản luật khớp (dùng contains)
+            if where_filter and 'document_number' in where_filter and 'document_number' in doc.metadata:
+                filter_val = where_filter['document_number'].get('$contains', '')
+                if filter_val and filter_val in str(doc.metadata['document_number']):
+                    meta_boost += 0.3
+            # Ưu tiên nếu đoạn chứa các từ khóa mức phạt
+            if any(keyword in doc.page_content for keyword in ["mức phạt", "phạt tiền", "xử phạt"]):
+                meta_boost += 0.2
+            adjusted_scores.append(score + meta_boost)
+
+        scored_docs = sorted(zip(adjusted_scores, combined_docs), key=lambda x: x[0], reverse=True)
         reranked_docs = [doc for score, doc in scored_docs][:self.top_k_final]
-        
+
         return reranked_docs
 
 QUERY_EXPANSION_MAP = {
@@ -95,7 +112,7 @@ QUERY_EXPANSION_MAP = {
     "không đội mũ bảo hiểm": "không đội mũ bảo hiểm hoặc đội mũ không cài quai đúng quy cách",
     "say xỉn": "có nồng độ cồn trong máu hoặc hơi thở",
     "uống rượu bia lái xe": "điều khiển phương tiện có nồng độ cồn",
-    "đi sai làn": "đi không đúng làn đường hoặc phần đường quy định",
+    "đi sai làn": "Điều khiển xe không đi bên phải theo phải theo chiều đi của mình; đi không đúng phần đường hoặc làn đường quy định",
     "lái xe quá tốc độ": "điều khiển xe chạy quá tốc độ cho phép",
     "bị phạt nguội": "xử phạt qua hệ thống giám sát tự động",
     "không bằng lái": "không có giấy phép lái xe",
@@ -158,11 +175,12 @@ RAG_PROMPT_TEMPLATE = """Bạn là LawBot, một chuyên gia AI về Luật Giao
 ---
 🧠 **QUY TRÌNH SUY LUẬN:**
 1.  **Phân tích câu hỏi**: Hiểu đúng yêu cầu của người dùng.
-2.  **Tìm kiếm trong NGỮ CẢNH**: Tìm tất cả thông tin liên quan đến hành vi vi phạm, mức phạt, các tình huống khác nhau (ví dụ: cho ô tô, cho xe máy, gây tai nạn).
+2.  **Tìm kiếm trong NGỮ CẢNH**: Tìm tất cả thông tin liên quan đến hành vi vi phạm, mức phạt, loại xe, các tình huống khác nhau (ví dụ: cho ô tô, cho xe máy, gây tai nạn).
 3.  **Cấu trúc hóa câu trả lời**: Nếu tìm được đủ thông tin, trình bày theo cấu trúc sau:
-    - Bắt đầu bằng một câu tóm tắt chung.
-    - Dùng gạch đầu dòng hoặc tiêu đề cho từng loại phương tiện (`#### 🚗 Với xe ô tô:`).
-    - Với mỗi phương tiện, ghi rõ: Mức phạt, hình phạt bổ sung.
+    - Bắt đầu bằng một câu tóm tắt chung. ví dụ Theo [tên văn bản luật], hành vi [mô tả hành vi vi phạm]:
+    - Dùng gạch đầu dòng hoặc tiêu đề cho từng loại phương tiện, trường hợp (`- 🚗 Với xe ô tô:`).
+    - Với mỗi phương tiện, trường hợp vi phạm, ghi rõ: Mức phạt, hình phạt bổ sung.
+    - Nếu có: thêm thông tin hình phạt bổ sung (tước bằng, trừ điểm giấy phép lái xe...).
     - **BẮT BUỘC** trích dẫn nguồn cho mỗi thông tin bằng cách sử dụng thông tin có sẵn trong NGỮ CẢNH. Ví dụ: `(theo Điều 7 của Nghị định 168/2024/NĐ-CP)`.
 4.  **Nếu không đủ thông tin**: Trả lời lịch sự: "Dựa trên các tài liệu được cung cấp, tôi không tìm thấy thông tin cụ thể về [chủ đề]."
 5.  **Tuyệt đối KHÔNG bịa đặt**.

@@ -43,6 +43,11 @@ dependencies = [
     "python-multipart (>=0.0.20,<0.0.21)",
     "langchain-chroma (>=0.2.4,<0.3.0)",
     "aiofiles (>=24.1.0,<25.0.0)",
+    "matplotlib (>=3.10.3,<4.0.0)",
+    "scikit-learn (>=1.7.0,<2.0.0)",
+    "nltk (>=3.9.1,<4.0.0)",
+    "rouge-score (>=0.1.2,<0.2.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
 ]
 
 [build-system]
