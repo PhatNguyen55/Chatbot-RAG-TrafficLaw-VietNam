@@ -16,7 +16,7 @@ The project aims to help users easily search, understand, and apply legal regula
 ---
 
 ## 🏗️ System Architecture
-- **Frontend**: Next.js + TypeScript + TailwindCSS + shadcn/ui  
+- **Frontend**: TypeScript + TailwindCSS + shadcn/ui  
 - **Backend**: FastAPI + LangChain + Poetry  
 - **Vector Store**: ChromaDB  
 - **Embedding Model**: `bkai/vietnamese-bi-encoder`  
