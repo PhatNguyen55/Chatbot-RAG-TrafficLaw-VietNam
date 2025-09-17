@@ -40,6 +40,3 @@ poetry run uvicorn app.main:app --reload
 cd frontend
 npm install
 npm run dev
-
-👨‍💻 Author
-Nguyen Tan Phat
