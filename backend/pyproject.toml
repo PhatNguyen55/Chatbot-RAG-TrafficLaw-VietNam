@@ -22,7 +22,7 @@ dependencies = [
     
     # --- AI Core & Data (THEO PHIÊN BẢN BẠN CUNG CẤP) ---
     "torch>=2.3.0", 
-    "sentence-transformers~=4.1.0",
+    "sentence-transformers>5.6.0",
     "transformers",       # <-- Khớp chính xác
     "tokenizers",       # <-- Khớp chính xác
     "numpy>=2.1.0",
